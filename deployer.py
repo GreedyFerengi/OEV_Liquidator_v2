@@ -19,7 +19,7 @@ class Deployer:
         print(f'{self.name} deploying contracts.....')
 
         name = "OevSearcherMulticallV1"
-        absolute_path = self.dir  + "/contracts/OevSearcherMulticallV1.sol"
+        absolute_path = self.dir + "/contracts/OevSearcherMulticallV1.sol"
         OSM, abi = self.deploy_contract(account, absolute_path, name, args=[Addresses.LP_POOL, Addresses.V2_SWAP])
         OSM_contract = load_contract(self.web3, OSM, abi)
         self.deployed_contract_objects = {name: OSM_contract}
@@ -29,6 +29,10 @@ class Deployer:
         FL, abi = self.deploy_contract(account, absolute_path, name, args=[Addresses.LP_POOL, Addresses.V2_SWAP])
         FL_contract = load_contract(self.web3, FL, abi)
         self.deployed_contract_objects[name] = FL_contract
+
+        envfile = open(self.dir+"/.env", "a")
+        envfile.write('\n' + f'FL_ADDRESS={FL}')
+        envfile.close()
 
         function = OSM_contract.functions.transferOwnership(FL_contract.address)
         tx_params = get_tx_params(web3=self.web3, account=account, value=0, gas=1000000)
@@ -46,9 +50,9 @@ class Deployer:
         self.deployed_contract_objects[name] = FL_contract
 
 if __name__ == "__main__":
-    node = os.getenv("optimism")
+    node = os.getenv("RPC")
     web3 = Web3(HTTPProvider(endpoint_uri=node, request_kwargs={'timeout': 100}))
-    test_account = web3.eth.account.from_key(os.getenv("farmer"))
+    test_account = web3.eth.account.from_key(os.getenv("PRIV_KEY"))
 
     deploy = Deployer(web3)
-    deploy.run_deploy(test_account)
+    deploy.run_deploys(test_account)

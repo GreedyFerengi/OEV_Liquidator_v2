@@ -10,7 +10,10 @@ class UnitTesting:
         self.deployer = Deployer(web3)
         self.oev = OEV(web3)
         self.contract_objects = {}
-        self.unhealthy_loans = fetchV2UnhealthyLoans()
+        try:
+            self.unhealthy_loans = fetchV2UnhealthyLoans()
+        except:
+            print(f'failure retrieving loans from the graph, going to keep going though')
         self.fulfilled_auctions = []
 
         fl_abi = json.loads(open('./contracts/storage/flashLoanReceiver_abi.json').read())
@@ -43,13 +46,6 @@ class UnitTesting:
             tx = build_and_send_and_wait(web3, live_account, function, tx_params)
             print(f'wFTM sent, tx: {tx}')
 
-    def contract_swap(self, account, input_token, output_token):
-        contract = self.contract_objects["flashLoanReceiver"]
-        function = contract.functions.swapERC20V2(input_token, output_token, 1 * 10 ** 18, 0, Addresses.V2_SWAP)
-        tx_params = get_tx_params(web3=web3, account=account, value=0, gas=1000000)
-        tx = build_and_send_and_wait(web3, account, function, tx_params)
-        print(f'swap from fl contract {input_token} for {output_token}, tx: {tx}')
-
     def update_lp(self, account):
         contract = self.contract_objects["flashLoanReceiver"]
         function = contract.functions.updateLendingPool(Addresses.LP_POOL)
@@ -69,17 +65,18 @@ class UnitTesting:
         print(f'reserve: {reserve}, collateral: {collateral}, amount: {amount}')
         function = fl_contract.functions.myFlashLoanCall([reserve], [amount], [0], collateral + user.replace("0x", ""))
         tx_params = get_tx_params(web3=web3, account=account, value=0, gas=1000000)
-        print(f'collateral balance: {erc20_balance(fl_contract.address, load_contract(web3, collateral, erc20_abi))}')
-        print(f'reserve balance: {erc20_balance(fl_contract.address, load_contract(web3, reserve, erc20_abi))}')
+        print(f'FL contract collateral balance: {erc20_balance(fl_contract.address, load_contract(web3, collateral, erc20_abi))}')
+        print(f'FL contract reserve balance: {erc20_balance(fl_contract.address, load_contract(web3, reserve, erc20_abi))}')
         tx = build_and_send_and_wait(web3, account, function, tx_params)
-        print(f'flash loan for {amount}, balance now {erc20_balance(fl_contract.address, load_contract(web3, reserve, erc20_abi))}, tx: {tx}')
-        print(f'collateral balance: {erc20_balance(fl_contract.address, load_contract(web3, collateral, erc20_abi))}')
-        print(f'reserve balance: {erc20_balance(fl_contract.address, load_contract(web3, reserve, erc20_abi))}')
+        print(f'flash loan completed for for {amount}: {tx}')
+        print(f'FL contract collateral balance: {erc20_balance(fl_contract.address, load_contract(web3, collateral, erc20_abi))}')
+        print(f'FL contract reserve balance: {erc20_balance(fl_contract.address, load_contract(web3, reserve, erc20_abi))}')
 
-    def deposit_to_oev(self, account, amount=1000000):
+    # not used
+    def deposit_to_oev(self, account, mainnet_rpc, amount=1000000):
         token = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-        web3 = Web3(HTTPProvider(endpoint_uri="http://192.168.1.84:8545/", request_kwargs={'timeout': 100}))
-        contract = load_contract(web3, os.getenv("PREPAYMENT_DEPOSIT_ADDRESSr"), api3_prepayment_depository_abi)
+        web3 = Web3(HTTPProvider(endpoint_uri=mainnet_rpc, request_kwargs={'timeout': 100}))
+        contract = load_contract(web3, os.getenv("PREPAYMENT_DEPOSIT_ADDRESS"), api3_prepayment_depository_abi)
         tx = approve_erc20(web3, account, token, contract.address, amount)
         if tx:
             print(f'OEV deposit approved to spend {amount} {token} for {account.address}')
@@ -98,10 +95,11 @@ class UnitTesting:
 
     def check_oev_wins(self, live_account):
         wins = self.oev.winning_bids(live_account)
-        print(f"{live_account.address} wins: {wins}")
         if wins:
+            print(f"{live_account.address} wins: {wins['winningBidIds']}")
             return wins
         else:
+            print(f"{live_account.address} wins: no winning bids")
             return False
 
     def update_oev_price(self, live_account):
@@ -118,26 +116,19 @@ class UnitTesting:
         function = contract.functions.doLiquidation(*args)
         tx_params = get_tx_params(web3=web3, account=live_account, value=0, gas=1000000)
         tx = build_and_send_and_wait(web3, live_account, function, tx_params)
-
-    def run_local_tests(self, test_account, live_account):
-        self.deploy_contracts(test_account)
-        self.setups(test_account, live_account, True)
-        self.flash_loan_test(test_account, Addresses.USDC, Addresses.WETH)
-        self.deposit_to_oev(live_account)
-        self.place_oev_bid(live_account)
-        self.check_oev_wins(live_account)
+        print(f'liquidation successful: {tx}')
 
     def run_live_tests(self, account):
-        print(f'{account.address} on chain {self.web3.eth.chain_id} balance {web3.eth.getBalance(account.address)/10**18}')
-        self.deploy_contracts(account)
+        print(f'{account.address} on chain {self.web3.eth.chain_id} bal {web3.eth.getBalance(account.address)/10**18} FL: {os.getenv("FL_ADDRESS")}')
+        # self.deploy_contracts(account)
         self.setups(live_account, live_account, True)
-        self.contract_swap(account, Addresses.FTM, Addresses.USDC)
         self.update_lp(account)
         self.flash_loan_test(account, Addresses.USDC, Addresses.FTM, amount=1000000)
         self.withdraw_tokens(account, Addresses.USDC)
         self.check_oev_wins(live_account)
         self.place_oev_bid(live_account)
         time.sleep(60)
+        self.check_oev_wins(live_account)
         self.update_oev_price(live_account)
 
     def test_for_liq(self, live_account):
@@ -165,6 +156,6 @@ if __name__ == "__main__":
     test_account = web3.eth.account.from_key(os.getenv("TEST_KEY"))
     live_account = web3.eth.account.from_key(os.getenv("PRIV_KEY"))
 
-    executor = UnitTesting(web3, "0x3449DF850F140F76003a20f6142C71f8A7474191")
+    executor = UnitTesting(web3, os.getenv("FL_ADDRESS"))
     executor.run_live_tests(live_account)
 
