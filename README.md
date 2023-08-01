@@ -24,7 +24,7 @@ flash loan completed for for 1000000: 0x1d9cc6c4274b22fe867e2580bda1a0c23f1f2e3e
 FL contract collateral balance: 0.0
 FL contract reserve balance: 8.735883
 withdrew USDC, tx: 0x9d1028e161da74db9c34b00afc86e3e3f29b67e985b332f56dc824acd951f27e
-0xF06E43DBe7c1318ab1CAb5747A42a32e0C3E9C88 wins: ['2f26aab9-1321-40ec-94f1-f6e8105e2618']
+0xF06E43DBe7c1318ab1CAb5747A42a32e0C3E9C88 wins: no winning bids
 bid placed with id:  {'id': 'e3beb766-ea97-4d0d-9334-81144122d6bd'}
 0xF06E43DBe7c1318ab1CAb5747A42a32e0C3E9C88 wins: ['e3beb766-ea97-4d0d-9334-81144122d6bd']
 updating oev price....
