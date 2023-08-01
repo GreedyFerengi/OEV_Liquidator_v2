@@ -1,4 +1,4 @@
-# OEV_Liquidator_v2 a Granary Finance liquidator bot for auctions using API3 OEV
+# a Granary Finance liquidator bot for auctions using API3 OEV
 
 This bot for Granary Finance will monitor open loans via the graph and submit OEV bids to update the price and liquidate!
 
